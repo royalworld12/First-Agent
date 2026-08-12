@@ -1,4 +1,4 @@
-import { generateText } from 'ai'
+import { generateText, streamText } from 'ai'
 import { google } from '@ai-sdk/google'
 import * as dotenv from 'dotenv'
 import * as readline from 'readline'
@@ -19,7 +19,7 @@ async function ask(question: string): Promise<string> {
 async function main() {
   console.log('🤖 AI Agent Started. Type "exit" to quit.\n')
 
-  const conversationHistory: any[] = []
+  let conversationHistory: any[] = []
 
   while (true) {
     const userInput = await ask('You: ')
@@ -30,6 +30,13 @@ async function main() {
       break
     }
 
+     // Reset command
+    if (userInput.toLowerCase() === '/reset') {
+      conversationHistory = []
+      console.log('🔄 Chat history reset!\n')
+      continue
+    }
+
     conversationHistory.push({
       role: 'user',
       content: userInput
@@ -37,17 +44,28 @@ async function main() {
 
     console.log('Agent: Thinking...')
 
-    const { text } = await generateText({
+    const result = await streamText({
       model: google('gemini-3.5-flash'),
-      instructions: 'You are a helpful AI assistant. Be concise and friendly.',
+        instructions: `
+        You are a helpful AI programming assistant.
+        Be concise, friendly, and explain programming concepts clearly.
+       and friendly.`,
       messages: conversationHistory
     })
 
-    console.log(`Agent: ${text}\n`)
+    // Collect streamed response
+    let assistantResponse = ''
+
+    for await (const chunk of result.textStream) {
+      process.stdout.write(chunk)
+      assistantResponse += chunk
+    }
+
+    console.log('\n')
 
     conversationHistory.push({
       role: 'assistant',
-      content: text
+      content: assistantResponse
     })
   }
 }
